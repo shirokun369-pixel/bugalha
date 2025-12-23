@@ -32,6 +32,10 @@ export interface GameState {
   playerAvatar: string | null;
   player2Name: string;
   player2Avatar: string | null;
+  // Novos campos para invocação
+  isSummoning: boolean;
+  summonedEnemies: Enemy[];
+  selectedSummon: Enemy | null;
   scores: {
     player: number;
     ai: number;
@@ -53,6 +57,9 @@ export const INITIAL_STATE: GameState = {
   playerAvatar: null,
   player2Name: 'HEREGE',
   player2Avatar: null,
+  isSummoning: false,
+  summonedEnemies: [],
+  selectedSummon: null,
   scores: {
     player: 0,
     ai: 0,
