@@ -9,6 +9,7 @@ export interface Enemy {
   difficulty: Difficulty;
   avatarColor: string;
   strategyLevel: number; // 0 to 3
+  avatar?: string; // Data URL da imagem gerada
 }
 
 export const ENEMIES: Enemy[] = [
@@ -20,7 +21,7 @@ export const ENEMIES: Enemy[] = [
 
 export interface GameState {
   boardPlayer: number[][];
-  boardAI: number[][]; // No modo local, este é o tabuleiro do Jogador 2
+  boardAI: number[][];
   currentTurn: Player;
   currentDiceValue: number | null;
   isRolling: boolean;
@@ -33,9 +34,9 @@ export interface GameState {
   player2Avatar: string | null;
   scores: {
     player: number;
-    ai: number; // No modo local, este é o score do Jogador 2
+    ai: number;
     playerCols: number[];
-    aiCols: number[]; // No modo local, estas são as colunas do Jogador 2
+    aiCols: number[];
   };
 }
 

@@ -33,6 +33,98 @@ const App: React.FC = () => {
   const [brushSize, setBrushSize] = useState(5);
   const rollIntervalRef = useRef<number | null>(null);
 
+  // Função para gerar foto procedural de monstro
+  const generateMonsterAvatar = (primaryColor: string): string => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+
+    // Fundo escuro rústico
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, 200, 200);
+
+    // Desenhar Cabeça
+    ctx.fillStyle = primaryColor;
+    ctx.beginPath();
+    const headType = Math.random();
+    if (headType < 0.3) {
+      ctx.arc(100, 110, 60, 0, Math.PI * 2); // Redonda
+    } else if (headType < 0.6) {
+      ctx.rect(50, 60, 100, 100); // Quadrada
+    } else {
+      ctx.moveTo(100, 40); // Triangular
+      ctx.lineTo(160, 160);
+      ctx.lineTo(40, 160);
+      ctx.closePath();
+    }
+    ctx.fill();
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Chifres / Orelhas
+    ctx.fillStyle = primaryColor;
+    if (Math.random() > 0.4) {
+       ctx.beginPath();
+       ctx.moveTo(60, 60); ctx.lineTo(30, 20); ctx.lineTo(80, 50); ctx.fill(); // Chifre L
+       ctx.beginPath();
+       ctx.moveTo(140, 60); ctx.lineTo(170, 20); ctx.lineTo(120, 50); ctx.fill(); // Chifre R
+    }
+
+    // Olhos Demoníacos
+    const eyeCount = Math.random() > 0.8 ? 3 : 2;
+    const eyeColor = Math.random() > 0.5 ? '#ff0000' : '#ffffff';
+    ctx.fillStyle = eyeColor;
+    
+    if (eyeCount === 2) {
+      ctx.beginPath(); ctx.arc(75, 100, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(125, 100, 12, 0, Math.PI * 2); ctx.fill();
+      // Pupilas
+      ctx.fillStyle = '#000000';
+      ctx.beginPath(); ctx.arc(75, 100, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(125, 100, 4, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.beginPath(); ctx.arc(70, 105, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(130, 105, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(100, 80, 10, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Boca
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    if (Math.random() > 0.5) {
+      ctx.moveTo(70, 140); ctx.lineTo(100, 150); ctx.lineTo(130, 140); // Sorriso macabro
+    } else {
+      ctx.moveTo(70, 145); ctx.lineTo(130, 145); // Linha reta
+    }
+    ctx.stroke();
+
+    // Marcas Rituais
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.moveTo(100, 40); ctx.lineTo(100, 170); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(40, 110); ctx.lineTo(160, 110); ctx.stroke();
+
+    return canvas.toDataURL();
+  };
+
+  // Inicializar avatares dos inimigos padrão
+  useEffect(() => {
+    if (game.currentEnemy && !game.currentEnemy.avatar) {
+      setGame(prev => ({
+        ...prev,
+        currentEnemy: {
+          ...prev.currentEnemy,
+          avatar: generateMonsterAvatar(prev.currentEnemy.avatarColor)
+        }
+      }));
+    }
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('bugalha_rank', rankPoints.toString());
   }, [rankPoints]);
@@ -60,12 +152,15 @@ const App: React.FC = () => {
     const name = `${prefixes[Math.floor(Math.random() * prefixes.length)]} ${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
     const diffIdx = Math.floor(Math.random() * difficulties.length);
     const colors = ['#ef4444', '#78716c', '#a8a29e', '#ffffff', '#fbbf24', '#8b5cf6'];
+    const avatarColor = colors[Math.floor(Math.random() * colors.length)];
+    
     return {
       id: Math.random().toString(36).substr(2, 9),
       name,
       difficulty: difficulties[diffIdx],
-      avatarColor: colors[Math.floor(Math.random() * colors.length)],
-      strategyLevel: diffIdx
+      avatarColor,
+      strategyLevel: diffIdx,
+      avatar: generateMonsterAvatar(avatarColor)
     };
   };
 
@@ -78,8 +173,11 @@ const App: React.FC = () => {
 
   const toggleGameMode = () => {
     const newMode: GameMode = game.gameMode === 'AI' ? 'LOCAL' : 'AI';
-    setGame(prev => ({ ...prev, gameMode: newMode }));
-    resetGame();
+    const baseEnemy = ENEMIES[Math.floor(Math.random() * ENEMIES.length)];
+    const enemyWithAvatar = { ...baseEnemy, avatar: generateMonsterAvatar(baseEnemy.avatarColor) };
+    
+    setGame(prev => ({ ...prev, gameMode: newMode, currentEnemy: enemyWithAvatar }));
+    resetGame(enemyWithAvatar);
     setMessage(newMode === 'LOCAL' ? 'MULTIplayer LOCAL ATIVO' : 'MODO CARREIRA ATIVO');
   };
 
@@ -195,7 +293,7 @@ const App: React.FC = () => {
       });
       setShowCreator(false);
       setMessage(`${finalName} SALVO`);
-      audioManager.playPlace(); // Som de confirmação
+      audioManager.playPlace(); 
     }
   };
 
@@ -224,8 +322,7 @@ const App: React.FC = () => {
           audioManager.playPlace();
         }
       } else {
-        const isP1Winner = winner === 'PLAYER';
-        const winnerName = isP1Winner ? game.playerName : (winner === 'PLAYER2' ? game.player2Name : "EMPATE");
+        const winnerName = winner === 'PLAYER' ? game.playerName : (winner === 'PLAYER2' ? game.player2Name : "EMPATE");
         setMessage(`MULTI: ${winnerName} VENCEU!`);
         if (winner === 'DRAW') audioManager.playPlace();
         else audioManager.playWin();
@@ -239,7 +336,7 @@ const App: React.FC = () => {
     
     rollIntervalRef.current = window.setInterval(() => {
       setFakeRollingValue(Math.floor(Math.random() * 6) + 1);
-      audioManager.playRoll(); // Toca chocalho em cada troca de frame do dado
+      audioManager.playRoll();
     }, 80);
 
     await new Promise(r => setTimeout(r, 800));
@@ -260,7 +357,7 @@ const App: React.FC = () => {
     const val = game.currentDiceValue;
     if (val === null || activeBoard[colIdx].length >= 3 || game.winner) return;
     
-    audioManager.playPlace(); // Som de impacto ao colocar o dado
+    audioManager.playPlace();
 
     const newActiveBoard = [...activeBoard];
     newActiveBoard[colIdx] = [...activeBoard[colIdx], val];
@@ -308,7 +405,7 @@ const App: React.FC = () => {
     }));
     setMessage(`${game.playerName} JOGA PRIMEIRO`);
     if (rollIntervalRef.current) clearInterval(rollIntervalRef.current);
-    audioManager.playPlace(); // Som de reset
+    audioManager.playPlace(); 
   };
 
   const renderBoard = (isPlayer1: boolean) => {
@@ -401,11 +498,15 @@ const App: React.FC = () => {
              <div className="w-full h-full border-4 rounded-lg flex items-center justify-center bg-stone-900 shadow-[0_0_20px_rgba(139,0,0,0.2)] overflow-hidden" 
                   style={{ borderColor: game.gameMode === 'AI' ? game.currentEnemy.avatarColor : '#ffffff' }}>
                 {game.gameMode === 'AI' ? (
-                  <div className="relative">
-                    <div className="w-12 h-14 bg-stone-800 rounded-t-lg border-2 border-stone-600"></div>
-                    <div className="absolute top-4 left-2 w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
-                    <div className="absolute top-4 right-2 w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
-                  </div>
+                  game.currentEnemy.avatar ? (
+                    <img src={game.currentEnemy.avatar} alt="Enemy Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="relative">
+                      <div className="w-12 h-14 bg-stone-800 rounded-t-lg border-2 border-stone-600"></div>
+                      <div className="absolute top-4 left-2 w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                      <div className="absolute top-4 right-2 w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                    </div>
+                  )
                 ) : (
                   game.player2Avatar ? <img src={game.player2Avatar} alt="P2" className="w-full h-full object-contain bg-white" /> : <div className="bg-stone-200 w-full h-full flex items-center justify-center"><User size={32} className="text-stone-800" /></div>
                 )}
