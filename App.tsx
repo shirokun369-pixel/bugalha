@@ -8,6 +8,7 @@ import {
 } from './gameLogic';
 import { DiceIcon } from './components/DiceIcon';
 import { Skull, Swords, RotateCcw, Info, Users, Edit3, Trash2, Check, Eraser, Pencil, Palette, PaintBucket, Maximize, Minimize, Trophy, Sparkles, User } from 'lucide-react';
+import { audioManager } from './audio';
 
 type Tool = 'pencil' | 'eraser' | 'bucket';
 
@@ -194,6 +195,7 @@ const App: React.FC = () => {
       });
       setShowCreator(false);
       setMessage(`${finalName} SALVO`);
+      audioManager.playPlace(); // Som de confirmação
     }
   };
 
@@ -212,13 +214,21 @@ const App: React.FC = () => {
           const bonus = (game.currentEnemy.strategyLevel + 1) * 10;
           setRankPoints(prev => prev + bonus);
           setMessage(`VITÓRIA! +${bonus} PONTOS DE CULTO`);
+          audioManager.playWin();
         } else if (winner === 'AI') {
           setRankPoints(prev => Math.max(0, prev - 5));
           setMessage(`DERROTA... -5 PONTOS DE CULTO`);
-        } else setMessage("EMPATE RITUALÍSTICO");
+          audioManager.playLose();
+        } else {
+          setMessage("EMPATE RITUALÍSTICO");
+          audioManager.playPlace();
+        }
       } else {
-        const winnerName = winner === 'PLAYER' ? game.playerName : winner === 'PLAYER2' ? game.player2Name : "EMPATE";
+        const isP1Winner = winner === 'PLAYER';
+        const winnerName = isP1Winner ? game.playerName : (winner === 'PLAYER2' ? game.player2Name : "EMPATE");
         setMessage(`MULTI: ${winnerName} VENCEU!`);
+        if (winner === 'DRAW') audioManager.playPlace();
+        else audioManager.playWin();
       }
     }
   }, [game.playerName, game.player2Name, game.currentEnemy]);
@@ -226,9 +236,15 @@ const App: React.FC = () => {
   const rollDice = async () => {
     if (game.isRolling || game.currentDiceValue !== null || game.winner) return;
     setGame(prev => ({ ...prev, isRolling: true }));
-    rollIntervalRef.current = window.setInterval(() => setFakeRollingValue(Math.floor(Math.random() * 6) + 1), 80);
+    
+    rollIntervalRef.current = window.setInterval(() => {
+      setFakeRollingValue(Math.floor(Math.random() * 6) + 1);
+      audioManager.playRoll(); // Toca chocalho em cada troca de frame do dado
+    }, 80);
+
     await new Promise(r => setTimeout(r, 800));
     if (rollIntervalRef.current) clearInterval(rollIntervalRef.current);
+    
     const newValue = Math.floor(Math.random() * 6) + 1;
     setGame(prev => ({ ...prev, isRolling: false, currentDiceValue: newValue }));
     
@@ -244,6 +260,8 @@ const App: React.FC = () => {
     const val = game.currentDiceValue;
     if (val === null || activeBoard[colIdx].length >= 3 || game.winner) return;
     
+    audioManager.playPlace(); // Som de impacto ao colocar o dado
+
     const newActiveBoard = [...activeBoard];
     newActiveBoard[colIdx] = [...activeBoard[colIdx], val];
     const newOpponentBoard = [...opponentBoard];
@@ -290,6 +308,7 @@ const App: React.FC = () => {
     }));
     setMessage(`${game.playerName} JOGA PRIMEIRO`);
     if (rollIntervalRef.current) clearInterval(rollIntervalRef.current);
+    audioManager.playPlace(); // Som de reset
   };
 
   const renderBoard = (isPlayer1: boolean) => {
