@@ -24,7 +24,6 @@ const App: React.FC = () => {
   const [brushSize, setBrushSize] = useState(5);
   const rollIntervalRef = useRef<number | null>(null);
 
-  // Inicializa o canvas quando o criador é aberto
   useEffect(() => {
     if (showCreator && canvasRef.current) {
       const canvas = canvasRef.current;
@@ -33,8 +32,6 @@ const App: React.FC = () => {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        // Só limpa se o canvas estiver vazio (para não apagar desenhos ao alternar borracha)
-        // Uma verificação simples: se não houver avatar salvo, inicia branco.
         if (!game.playerAvatar) {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -308,7 +305,6 @@ const App: React.FC = () => {
                 
                 <div className="h-8 w-[1px] bg-stone-800 mx-2"></div>
 
-                {/* RGB Color Picker */}
                 <div className="relative group flex items-center gap-2">
                   <div 
                     className={`w-10 h-10 rounded-full border-2 flex items-center justify-center overflow-hidden transition-all ${!isEraser && !['#000000', '#ff0000', '#ffffff'].includes(brushColor) ? 'border-white scale-110 shadow-lg' : 'border-stone-700'}`}
@@ -349,11 +345,64 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-[#050505]">
       
-      <div className="relative w-full max-w-5xl flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-4">
+      <div className="relative w-full max-w-5xl flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-4">
         
-        {/* Left Side: Player */}
-        <div className="flex flex-col items-center text-center w-full lg:w-48 order-2 lg:order-1">
-          <div className="relative w-24 h-24 mb-4 floating">
+        {/* Top (Mobile) / Right (Desktop): Current Enemy */}
+        <div className="flex flex-col items-center text-center w-full lg:w-48 order-1 lg:order-3">
+          <div className="relative w-20 h-20 md:w-24 md:h-24 mb-4 floating" style={{ animationDelay: '1s' }}>
+             <div className="w-full h-full border-4 border-stone-700 rounded-lg flex items-center justify-center bg-stone-900 shadow-[0_0_20px_rgba(139,0,0,0.2)]" style={{ borderColor: game.currentEnemy.avatarColor }}>
+                <div className="relative">
+                   <div className="w-12 h-14 bg-stone-800 rounded-t-lg border-2 border-stone-600"></div>
+                   <div className="absolute top-4 left-2 w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                   <div className="absolute top-4 right-2 w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                </div>
+             </div>
+          </div>
+          <h2 className="cinzel text-lg md:text-xl font-bold tracking-widest text-stone-400 mb-1 underline decoration-stone-800 underline-offset-8 uppercase">{game.currentEnemy.name}</h2>
+          <p className="text-[10px] cinzel text-stone-600 mb-2 uppercase">{game.currentEnemy.difficulty}</p>
+          <div className="mt-1 p-3 border border-stone-800 bg-stone-900/40 rounded w-full max-w-[120px] lg:max-w-none">
+            <p className="text-2xl md:text-3xl font-black cinzel text-stone-300">{game.scores.ai}</p>
+            <p className="text-[10px] cinzel text-stone-600 uppercase tracking-widest">Pontos</p>
+          </div>
+        </div>
+
+        {/* Central Area: Both Boards and Rolling UI */}
+        <div className="flex-1 flex flex-col items-center gap-6 md:gap-8 order-2 lg:order-2">
+           {/* Enemy Board */}
+           <div className="relative fire-border overflow-hidden rounded transform scale-90 md:scale-100">
+             {renderBoard(false)}
+           </div>
+
+           {/* Message and Dice Rolling Area */}
+           <div className="py-2 w-full text-center relative flex flex-col items-center gap-4">
+             <div className="relative z-10 px-6 py-2 bg-[#050505] inline-block mb-2">
+                <h3 className="cinzel text-lg md:text-2xl font-black tracking-[0.15em] text-white drop-shadow-md uppercase">
+                   {message}
+                </h3>
+             </div>
+
+             <div className="h-28 md:h-32 flex flex-col items-center justify-center">
+                {game.isRolling ? (
+                  <DiceIcon value={fakeRollingValue} rolling={true} className="w-16 h-16 md:w-20 md:h-20 bg-white" />
+                ) : game.currentDiceValue ? (
+                  <DiceIcon value={game.currentDiceValue} className="w-16 h-16 md:w-20 md:h-20 bg-white border-4 border-stone-300 shadow-[0_0_20px_rgba(220,38,38,0.4)]" />
+                ) : (
+                  <button onClick={rollDice} disabled={!canRoll} className={`py-3 px-10 md:py-4 md:px-12 border-2 cinzel font-bold text-base md:text-lg transition-all tracking-[0.3em] ${canRoll ? 'border-red-600 text-red-500 hover:bg-red-900/20 hover:scale-105' : 'border-stone-800 text-stone-700 cursor-not-allowed opacity-50'}`}>
+                    ROLAR DADO
+                  </button>
+                )}
+             </div>
+           </div>
+
+           {/* Player Board */}
+           <div className="relative fire-border overflow-hidden rounded transform scale-90 md:scale-100">
+             {renderBoard(true)}
+           </div>
+        </div>
+
+        {/* Bottom (Mobile) / Left (Desktop): Player Info */}
+        <div className="flex flex-col items-center text-center w-full lg:w-48 order-3 lg:order-1">
+          <div className="relative w-20 h-20 md:w-24 md:h-24 mb-4 floating">
              <div className="w-full h-full border-4 border-stone-200 rounded-lg flex items-center justify-center bg-white shadow-[0_0_20px_rgba(255,255,255,0.2)] overflow-hidden">
                 {game.playerAvatar ? (
                   <img src={game.playerAvatar} alt="Avatar" className="w-full h-full object-contain" />
@@ -371,99 +420,48 @@ const App: React.FC = () => {
                <Edit3 size={14} />
              </button>
           </div>
-          <h2 className="cinzel text-xl font-bold tracking-widest text-white mb-2 underline decoration-stone-700 underline-offset-8 uppercase">{game.playerName}</h2>
-          <div className="mt-4 p-4 border border-stone-800 bg-stone-900/40 rounded w-full">
-            <p className="text-3xl font-black cinzel text-red-600">{game.scores.player}</p>
-            <p className="text-[10px] cinzel text-stone-500 uppercase tracking-widest">Total</p>
-          </div>
-        </div>
-
-        {/* Central Area */}
-        <div className="flex-1 flex flex-col items-center gap-8 order-1 lg:order-2">
-           <div className="relative fire-border overflow-hidden rounded">
-             {renderBoard(false)}
-           </div>
-
-           <div className="py-4 w-full text-center relative flex flex-col items-center gap-4">
-             <div className="relative z-10 px-8 py-2 bg-[#050505] inline-block mb-4">
-                <h3 className="cinzel text-xl md:text-2xl font-black tracking-[0.2em] text-white drop-shadow-md uppercase">
-                   {message}
-                </h3>
-             </div>
-
-             <div className="h-32 flex flex-col items-center justify-center">
-                {game.isRolling ? (
-                  <DiceIcon value={fakeRollingValue} rolling={true} className="w-20 h-20 bg-white" />
-                ) : game.currentDiceValue ? (
-                  <DiceIcon value={game.currentDiceValue} className="w-20 h-20 bg-white border-4 border-stone-300 shadow-[0_0_20px_rgba(220,38,38,0.4)]" />
-                ) : (
-                  <button onClick={rollDice} disabled={!canRoll} className={`py-4 px-12 border-2 cinzel font-bold text-lg transition-all tracking-[0.3em] ${canRoll ? 'border-red-600 text-red-500 hover:bg-red-900/20 hover:scale-105' : 'border-stone-800 text-stone-700 cursor-not-allowed opacity-50'}`}>
-                    ROLAR DADO
-                  </button>
-                )}
-             </div>
-           </div>
-
-           <div className="relative fire-border overflow-hidden rounded">
-             {renderBoard(true)}
-           </div>
-        </div>
-
-        {/* Right Side: Current Enemy */}
-        <div className="flex flex-col items-center text-center w-full lg:w-48 order-3">
-          <div className="relative w-24 h-24 mb-4 floating" style={{ animationDelay: '1s' }}>
-             <div className="w-full h-full border-4 border-stone-700 rounded-lg flex items-center justify-center bg-stone-900 shadow-[0_0_20px_rgba(139,0,0,0.2)]" style={{ borderColor: game.currentEnemy.avatarColor }}>
-                <div className="relative">
-                   <div className="w-12 h-14 bg-stone-800 rounded-t-lg border-2 border-stone-600"></div>
-                   <div className="absolute top-4 left-2 w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
-                   <div className="absolute top-4 right-2 w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
-                </div>
-             </div>
-          </div>
-          <h2 className="cinzel text-xl font-bold tracking-widest text-stone-400 mb-2 underline decoration-stone-800 underline-offset-8 uppercase">{game.currentEnemy.name}</h2>
-          <p className="text-[10px] cinzel text-stone-600 mb-4 uppercase">{game.currentEnemy.difficulty}</p>
-          <div className="mt-2 p-4 border border-stone-800 bg-stone-900/40 rounded w-full">
-            <p className="text-3xl font-black cinzel text-stone-300">{game.scores.ai}</p>
-            <p className="text-[10px] cinzel text-stone-600 uppercase tracking-widest">Total</p>
+          <h2 className="cinzel text-lg md:text-xl font-bold tracking-widest text-white mb-2 underline decoration-stone-700 underline-offset-8 uppercase">{game.playerName}</h2>
+          <div className="mt-1 p-3 border border-stone-800 bg-stone-900/40 rounded w-full max-w-[120px] lg:max-w-none">
+            <p className="text-2xl md:text-3xl font-black cinzel text-red-600">{game.scores.player}</p>
+            <p className="text-[10px] cinzel text-stone-500 uppercase tracking-widest">Pontos</p>
           </div>
         </div>
 
       </div>
 
-      <div className="mt-16 flex flex-wrap gap-8 items-center justify-center">
-         <button onClick={() => setShowEnemyPicker(true)} className="text-stone-400 hover:text-red-500 transition-colors cinzel text-xs flex items-center gap-2 tracking-widest border border-stone-800 px-4 py-2 hover:border-red-900">
-           <Users size={14} /> MUDAR OPONENTE
+      <div className="mt-12 md:mt-16 flex flex-wrap gap-6 md:gap-8 items-center justify-center">
+         <button onClick={() => setShowEnemyPicker(true)} className="text-stone-400 hover:text-red-500 transition-colors cinzel text-[10px] md:text-xs flex items-center gap-2 tracking-widest border border-stone-800 px-4 py-2 hover:border-red-900 uppercase">
+           <Users size={14} /> Mudar Oponente
          </button>
-         <button onClick={() => resetGame()} className="text-stone-600 hover:text-white transition-colors cinzel text-xs flex items-center gap-2 tracking-widest">
-           <RotateCcw size={14} /> REINICIAR
+         <button onClick={() => resetGame()} className="text-stone-600 hover:text-white transition-colors cinzel text-[10px] md:text-xs flex items-center gap-2 tracking-widest uppercase">
+           <RotateCcw size={14} /> Reiniciar
          </button>
-         <button onClick={() => setShowRules(true)} className="text-stone-600 hover:text-white transition-colors cinzel text-xs flex items-center gap-2 tracking-widest">
-           <Info size={14} /> REGRAS
+         <button onClick={() => setShowRules(true)} className="text-stone-600 hover:text-white transition-colors cinzel text-[10px] md:text-xs flex items-center gap-2 tracking-widest uppercase">
+           <Info size={14} /> Regras
          </button>
       </div>
 
-      {/* Enemy Picker Modal */}
       {showEnemyPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md" onClick={() => setShowEnemyPicker(false)}>
-          <div className="bg-[#101010] border-2 border-[#331111] p-8 rounded-none max-w-2xl w-full shadow-[0_0_100px_rgba(139,0,0,0.3)]" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl cinzel text-white text-center mb-8 tracking-[0.2em] uppercase">Escolha seu Oponente</h2>
+          <div className="bg-[#101010] border-2 border-[#331111] p-6 md:p-8 rounded-none max-w-2xl w-full shadow-[0_0_100px_rgba(139,0,0,0.3)]" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl md:text-2xl cinzel text-white text-center mb-6 md:mb-8 tracking-[0.2em] uppercase">Escolha seu Oponente</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {ENEMIES.map(enemy => (
                 <button 
                   key={enemy.id} 
                   onClick={() => { resetGame(enemy); setShowEnemyPicker(false); }}
-                  className={`p-6 border-2 transition-all flex items-center gap-4 group ${game.currentEnemy.id === enemy.id ? 'border-red-600 bg-red-900/10' : 'border-stone-800 hover:border-stone-600 bg-stone-900/40'}`}
+                  className={`p-4 md:p-6 border-2 transition-all flex items-center gap-4 group ${game.currentEnemy.id === enemy.id ? 'border-red-600 bg-red-900/10' : 'border-stone-800 hover:border-stone-600 bg-stone-900/40'}`}
                 >
-                  <div className="w-12 h-12 bg-stone-800 rounded flex items-center justify-center border border-stone-700" style={{ borderColor: enemy.avatarColor }}>
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-stone-800 rounded flex items-center justify-center border border-stone-700" style={{ borderColor: enemy.avatarColor }}>
                     <Skull size={20} className={game.currentEnemy.id === enemy.id ? 'text-red-500' : 'text-stone-500'} />
                   </div>
                   <div className="text-left">
-                    <p className="cinzel text-white font-bold tracking-widest uppercase">{enemy.name}</p>
+                    <p className="cinzel text-sm md:text-base text-white font-bold tracking-widest uppercase">{enemy.name}</p>
                     <div className="flex gap-1 mt-1">
                       {Array.from({ length: enemy.strategyLevel + 1 }).map((_, i) => (
-                        <div key={i} className="w-2 h-2 bg-red-600 rounded-full"></div>
+                        <div key={i} className="w-1.5 h-1.5 md:w-2 md:h-2 bg-red-600 rounded-full"></div>
                       ))}
-                      <span className="text-[10px] text-stone-500 cinzel ml-2 uppercase">{enemy.difficulty}</span>
+                      <span className="text-[8px] md:text-[10px] text-stone-500 cinzel ml-2 uppercase">{enemy.difficulty}</span>
                     </div>
                   </div>
                 </button>
@@ -475,14 +473,14 @@ const App: React.FC = () => {
 
       {showRules && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md" onClick={() => setShowRules(false)}>
-          <div className="bg-[#101010] border-2 border-[#331111] p-10 rounded-none max-w-lg w-full relative shadow-[0_0_100px_rgba(139,0,0,0.4)]" onClick={e => e.stopPropagation()}>
-            <h2 className="text-3xl cinzel text-white text-center mb-10 tracking-widest uppercase">Leis da Bugalha</h2>
-            <ul className="space-y-6 text-stone-400 text-sm cinzel tracking-wide">
-              <li className="flex gap-4"><span className="text-red-600 font-bold text-xl">I.</span> Coloque dados no tabuleiro sagrado.</li>
-              <li className="flex gap-4"><span className="text-red-600 font-bold text-xl">II.</span> Combine números com o oponente para <b>banir</b> os dados dele.</li>
-              <li className="flex gap-4"><span className="text-red-600 font-bold text-xl">III.</span> Dados iguais na coluna multiplicam o poder exponencialmente (Soma × Quantidade).</li>
+          <div className="bg-[#101010] border-2 border-[#331111] p-8 md:p-10 rounded-none max-w-lg w-full relative shadow-[0_0_100px_rgba(139,0,0,0.4)]" onClick={e => e.stopPropagation()}>
+            <h2 className="text-2xl md:text-3xl cinzel text-white text-center mb-8 md:mb-10 tracking-widest uppercase">Leis da Bugalha</h2>
+            <ul className="space-y-4 md:space-y-6 text-stone-400 text-xs md:text-sm cinzel tracking-wide">
+              <li className="flex gap-4"><span className="text-red-600 font-bold text-lg md:text-xl">I.</span> Coloque dados no tabuleiro sagrado.</li>
+              <li className="flex gap-4"><span className="text-red-600 font-bold text-lg md:text-xl">II.</span> Combine números com o oponente para <b>banir</b> os dados dele.</li>
+              <li className="flex gap-4"><span className="text-red-600 font-bold text-lg md:text-xl">III.</span> Dados iguais na coluna multiplicam o poder exponencialmente (Soma × Quantidade).</li>
             </ul>
-            <button onClick={() => setShowRules(false)} className="mt-12 w-full py-4 border border-stone-800 hover:bg-stone-800 text-white cinzel text-sm tracking-widest uppercase">Voltar ao Ritual</button>
+            <button onClick={() => setShowRules(false)} className="mt-10 md:mt-12 w-full py-4 border border-stone-800 hover:bg-stone-800 text-white cinzel text-[10px] md:text-xs tracking-widest uppercase">Voltar ao Ritual</button>
           </div>
         </div>
       )}
