@@ -7,7 +7,9 @@ import {
   getAIBestMove 
 } from './gameLogic';
 import { DiceIcon } from './components/DiceIcon';
-import { Skull, Swords, RotateCcw, Info, Users, Edit3, Trash2, Check, Eraser, Pencil, Palette } from 'lucide-react';
+import { Skull, Swords, RotateCcw, Info, Users, Edit3, Trash2, Check, Eraser, Pencil, Palette, PaintBucket } from 'lucide-react';
+
+type Tool = 'pencil' | 'eraser' | 'bucket';
 
 const App: React.FC = () => {
   const [game, setGame] = useState<GameState>(INITIAL_STATE);
@@ -20,14 +22,14 @@ const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [brushColor, setBrushColor] = useState('#ff0000');
-  const [isEraser, setIsEraser] = useState(false);
+  const [currentTool, setCurrentTool] = useState<Tool>('pencil');
   const [brushSize, setBrushSize] = useState(5);
   const rollIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (showCreator && canvasRef.current) {
       const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (ctx) {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -46,9 +48,64 @@ const App: React.FC = () => {
     }
   }, [showCreator]);
 
+  // Função Auxiliar para Hex -> RGBA
+  const hexToRgb = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return [r, g, b, 255];
+  };
+
+  // Algoritmo de Flood Fill para o Balde de Tinta
+  const floodFill = (startX: number, startY: number, fillColor: number[]) => {
+    if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    const imageData = ctx.getImageData(0, 0, 200, 200);
+    const data = imageData.data;
+    const startIdx = (startY * 200 + startX) * 4;
+    const targetColor = [data[startIdx], data[startIdx+1], data[startIdx+2], data[startIdx+3]];
+
+    // Se a cor já for a mesma, ignora
+    if (targetColor[0] === fillColor[0] && targetColor[1] === fillColor[1] && targetColor[2] === fillColor[2]) return;
+
+    const stack = [[startX, startY]];
+    while (stack.length > 0) {
+      const [x, y] = stack.pop()!;
+      const currentIdx = (y * 200 + x) * 4;
+
+      if (
+        data[currentIdx] === targetColor[0] &&
+        data[currentIdx + 1] === targetColor[1] &&
+        data[currentIdx + 2] === targetColor[2] &&
+        data[currentIdx + 3] === targetColor[3]
+      ) {
+        data[currentIdx] = fillColor[0];
+        data[currentIdx + 1] = fillColor[1];
+        data[currentIdx + 2] = fillColor[2];
+        data[currentIdx + 3] = fillColor[3];
+
+        if (x > 0) stack.push([x - 1, y]);
+        if (x < 199) stack.push([x + 1, y]);
+        if (y > 0) stack.push([x, y - 1]);
+        if (y < 199) stack.push([x, y + 1]);
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  };
+
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsDrawing(true);
     const pos = getPos(e);
+    const x = Math.floor(pos.x);
+    const y = Math.floor(pos.y);
+
+    if (currentTool === 'bucket') {
+      floodFill(x, y, hexToRgb(brushColor));
+      return;
+    }
+
+    setIsDrawing(true);
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext('2d');
       if (ctx) {
@@ -67,20 +124,22 @@ const App: React.FC = () => {
     const rect = canvasRef.current.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
-    };
+    
+    // Garantir que as coordenadas fiquem dentro do canvas 200x200
+    const x = Math.max(0, Math.min(199, ((clientX - rect.left) / rect.width) * 200));
+    const y = Math.max(0, Math.min(199, ((clientY - rect.top) / rect.height) * 200));
+    
+    return { x, y };
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing || !canvasRef.current) return;
+    if (!isDrawing || !canvasRef.current || currentTool === 'bucket') return;
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
 
     const pos = getPos(e);
-    ctx.lineWidth = isEraser ? 20 : brushSize;
-    ctx.strokeStyle = isEraser ? '#ffffff' : brushColor;
+    ctx.lineWidth = currentTool === 'eraser' ? 20 : brushSize;
+    ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : brushColor;
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
   };
@@ -266,15 +325,22 @@ const App: React.FC = () => {
                 <label className="cinzel text-stone-500 text-xs uppercase tracking-widest">Desenhe sua Face</label>
                 <div className="flex gap-2">
                    <button 
-                    onClick={() => setIsEraser(false)} 
-                    className={`p-2 rounded border transition-all ${!isEraser ? 'bg-red-900/30 border-red-600 text-red-500' : 'bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-600'}`}
+                    onClick={() => setCurrentTool('pencil')} 
+                    className={`p-2 rounded border transition-all ${currentTool === 'pencil' ? 'bg-red-900/30 border-red-600 text-red-500' : 'bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-600'}`}
                     title="Lápis"
                    >
                      <Pencil size={18} />
                    </button>
                    <button 
-                    onClick={() => setIsEraser(true)} 
-                    className={`p-2 rounded border transition-all ${isEraser ? 'bg-red-900/30 border-red-600 text-red-500' : 'bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-600'}`}
+                    onClick={() => setCurrentTool('bucket')} 
+                    className={`p-2 rounded border transition-all ${currentTool === 'bucket' ? 'bg-red-900/30 border-red-600 text-red-500' : 'bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-600'}`}
+                    title="Balde de Tinta"
+                   >
+                     <PaintBucket size={18} />
+                   </button>
+                   <button 
+                    onClick={() => setCurrentTool('eraser')} 
+                    className={`p-2 rounded border transition-all ${currentTool === 'eraser' ? 'bg-red-900/30 border-red-600 text-red-500' : 'bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-600'}`}
                     title="Borracha"
                    >
                      <Eraser size={18} />
@@ -294,27 +360,27 @@ const App: React.FC = () => {
                   onTouchStart={startDrawing}
                   onTouchEnd={stopDrawing}
                   onTouchMove={draw}
-                  className="bg-white"
+                  className="bg-white w-[200px] h-[200px]"
                 />
               </div>
               
               <div className="flex flex-wrap gap-3 items-center justify-center w-full bg-stone-900/50 p-4 rounded border border-stone-800/50">
-                <button onClick={() => {setBrushColor('#000000'); setIsEraser(false);}} className={`w-8 h-8 rounded-full border-2 ${brushColor === '#000000' && !isEraser ? 'border-white scale-110 shadow-lg' : 'border-transparent'} bg-black transition-transform`}></button>
-                <button onClick={() => {setBrushColor('#ff0000'); setIsEraser(false);}} className={`w-8 h-8 rounded-full border-2 ${brushColor === '#ff0000' && !isEraser ? 'border-white scale-110 shadow-lg' : 'border-transparent'} bg-red-600 transition-transform`}></button>
-                <button onClick={() => {setBrushColor('#ffffff'); setIsEraser(false);}} className={`w-8 h-8 rounded-full border-2 ${brushColor === '#ffffff' && !isEraser ? 'border-black scale-110 shadow-lg' : 'border-transparent'} bg-white transition-transform`}></button>
+                <button onClick={() => {setBrushColor('#000000'); if(currentTool==='eraser')setCurrentTool('pencil');}} className={`w-8 h-8 rounded-full border-2 ${brushColor === '#000000' && currentTool !== 'eraser' ? 'border-white scale-110 shadow-lg' : 'border-transparent'} bg-black transition-transform`}></button>
+                <button onClick={() => {setBrushColor('#ff0000'); if(currentTool==='eraser')setCurrentTool('pencil');}} className={`w-8 h-8 rounded-full border-2 ${brushColor === '#ff0000' && currentTool !== 'eraser' ? 'border-white scale-110 shadow-lg' : 'border-transparent'} bg-red-600 transition-transform`}></button>
+                <button onClick={() => {setBrushColor('#ffffff'); if(currentTool==='eraser')setCurrentTool('pencil');}} className={`w-8 h-8 rounded-full border-2 ${brushColor === '#ffffff' && currentTool !== 'eraser' ? 'border-black scale-110 shadow-lg' : 'border-transparent'} bg-white transition-transform`}></button>
                 
                 <div className="h-8 w-[1px] bg-stone-800 mx-2"></div>
 
                 <div className="relative group flex items-center gap-2">
                   <div 
-                    className={`w-10 h-10 rounded-full border-2 flex items-center justify-center overflow-hidden transition-all ${!isEraser && !['#000000', '#ff0000', '#ffffff'].includes(brushColor) ? 'border-white scale-110 shadow-lg' : 'border-stone-700'}`}
+                    className={`w-10 h-10 rounded-full border-2 flex items-center justify-center overflow-hidden transition-all ${currentTool !== 'eraser' && !['#000000', '#ff0000', '#ffffff'].includes(brushColor) ? 'border-white scale-110 shadow-lg' : 'border-stone-700'}`}
                     style={{ backgroundColor: brushColor }}
                   >
                     <Palette size={16} className={brushColor === '#ffffff' ? 'text-black' : 'text-white'} />
                     <input 
                       type="color" 
                       value={brushColor}
-                      onChange={(e) => {setBrushColor(e.target.value); setIsEraser(false);}}
+                      onChange={(e) => {setBrushColor(e.target.value); if(currentTool==='eraser')setCurrentTool('pencil');}}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                     />
                   </div>
