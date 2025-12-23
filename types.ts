@@ -1,6 +1,7 @@
 
-export type Player = 'PLAYER' | 'AI';
+export type Player = 'PLAYER' | 'AI' | 'PLAYER2';
 export type Difficulty = 'Fácil' | 'Médio' | 'Difícil' | 'Mestre';
+export type GameMode = 'AI' | 'LOCAL';
 
 export interface Enemy {
   id: string;
@@ -19,19 +20,22 @@ export const ENEMIES: Enemy[] = [
 
 export interface GameState {
   boardPlayer: number[][];
-  boardAI: number[][];
+  boardAI: number[][]; // No modo local, este é o tabuleiro do Jogador 2
   currentTurn: Player;
   currentDiceValue: number | null;
   isRolling: boolean;
   winner: Player | 'DRAW' | null;
   currentEnemy: Enemy;
+  gameMode: GameMode;
   playerName: string;
-  playerAvatar: string | null; // Base64 image
+  playerAvatar: string | null;
+  player2Name: string;
+  player2Avatar: string | null;
   scores: {
     player: number;
-    ai: number;
+    ai: number; // No modo local, este é o score do Jogador 2
     playerCols: number[];
-    aiCols: number[];
+    aiCols: number[]; // No modo local, estas são as colunas do Jogador 2
   };
 }
 
@@ -43,8 +47,11 @@ export const INITIAL_STATE: GameState = {
   isRolling: false,
   winner: null,
   currentEnemy: ENEMIES[1],
+  gameMode: 'AI',
   playerName: 'CORDEIRO',
   playerAvatar: null,
+  player2Name: 'HEREGE',
+  player2Avatar: null,
   scores: {
     player: 0,
     ai: 0,
