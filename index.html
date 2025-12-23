@@ -68,6 +68,10 @@
             background-color: #1a1515;
             background-image: url('https://www.transparenttextures.com/patterns/dark-wood.png');
         }
+
+        canvas {
+            image-rendering: pixelated;
+        }
     </style>
 <script type="importmap">
 {
@@ -82,5 +86,7 @@
 </head>
 <body>
     <div id="root"></div>
+    <!-- Script de entrada necessário para carregar o módulo index.tsx -->
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>

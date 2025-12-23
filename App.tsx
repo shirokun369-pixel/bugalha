@@ -24,17 +24,26 @@ const App: React.FC = () => {
   const [brushSize, setBrushSize] = useState(5);
   const rollIntervalRef = useRef<number | null>(null);
 
+  // Inicializa o canvas quando o criador é aberto
   useEffect(() => {
     if (showCreator && canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        // Check if canvas is already drawn on (to avoid clearing when toggling eraser)
-        const imageData = ctx.getImageData(0, 0, 1, 1).data;
-        if (imageData[3] === 0) { // If transparent/empty
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, 200, 200);
+        
+        // Só limpa se o canvas estiver vazio (para não apagar desenhos ao alternar borracha)
+        // Uma verificação simples: se não houver avatar salvo, inicia branco.
+        if (!game.playerAvatar) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+            const img = new Image();
+            img.src = game.playerAvatar;
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+            };
         }
       }
     }
@@ -42,15 +51,29 @@ const App: React.FC = () => {
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     setIsDrawing(true);
-    draw(e);
+    const pos = getPos(e);
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+      }
+    }
   };
 
   const stopDrawing = () => {
     setIsDrawing(false);
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      ctx?.beginPath();
-    }
+  };
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
@@ -58,22 +81,11 @@ const App: React.FC = () => {
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
 
-    const rect = canvasRef.current.getBoundingClientRect();
-    let x, y;
-
-    if ('touches' in e) {
-      x = e.touches[0].clientX - rect.left;
-      y = e.touches[0].clientY - rect.top;
-    } else {
-      x = e.clientX - rect.left;
-      y = e.clientY - rect.top;
-    }
-
+    const pos = getPos(e);
     ctx.lineWidth = isEraser ? 20 : brushSize;
     ctx.strokeStyle = isEraser ? '#ffffff' : brushColor;
-    ctx.lineTo(x, y);
+    ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
-    ctx.moveTo(x, y);
   };
 
   const clearCanvas = () => {
@@ -89,13 +101,14 @@ const App: React.FC = () => {
   const saveCharacter = (name: string) => {
     if (canvasRef.current) {
       const avatar = canvasRef.current.toDataURL('image/png');
+      const finalName = name.trim().toUpperCase() || 'CORDEIRO';
       setGame(prev => ({ 
         ...prev, 
-        playerName: name.toUpperCase() || 'CORDEIRO', 
+        playerName: finalName, 
         playerAvatar: avatar 
       }));
       setShowCreator(false);
-      setMessage(`${name.toUpperCase() || 'CORDEIRO'} JOGA PRIMEIRO`);
+      setMessage(`${finalName} JOGA PRIMEIRO`);
     }
   };
 
@@ -236,11 +249,11 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-[#050505]">
         <div className="bg-[#101010] border-2 border-[#331111] p-10 rounded-none max-w-lg w-full shadow-[0_0_100px_rgba(139,0,0,0.2)]">
-          <h2 className="text-3xl cinzel text-white text-center mb-8 tracking-widest">CRIE SEU AVATAR</h2>
+          <h2 className="text-3xl cinzel text-white text-center mb-8 tracking-widest uppercase">Crie seu Avatar</h2>
           
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <label className="cinzel text-stone-500 text-xs uppercase tracking-widest">NOME DO CULTO</label>
+              <label className="cinzel text-stone-500 text-xs uppercase tracking-widest">Nome do Culto</label>
               <input 
                 id="playerNameInput"
                 type="text" 
@@ -253,18 +266,18 @@ const App: React.FC = () => {
 
             <div className="flex flex-col gap-4 items-center">
               <div className="flex justify-between w-full items-center">
-                <label className="cinzel text-stone-500 text-xs uppercase tracking-widest">DESENHE SUA FACE</label>
+                <label className="cinzel text-stone-500 text-xs uppercase tracking-widest">Desenhe sua Face</label>
                 <div className="flex gap-2">
                    <button 
                     onClick={() => setIsEraser(false)} 
-                    className={`p-2 rounded border ${!isEraser ? 'bg-red-900/30 border-red-600 text-red-500' : 'bg-stone-900 border-stone-800 text-stone-500'}`}
+                    className={`p-2 rounded border transition-all ${!isEraser ? 'bg-red-900/30 border-red-600 text-red-500' : 'bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-600'}`}
                     title="Lápis"
                    >
                      <Pencil size={18} />
                    </button>
                    <button 
                     onClick={() => setIsEraser(true)} 
-                    className={`p-2 rounded border ${isEraser ? 'bg-red-900/30 border-red-600 text-red-500' : 'bg-stone-900 border-stone-800 text-stone-500'}`}
+                    className={`p-2 rounded border transition-all ${isEraser ? 'bg-red-900/30 border-red-600 text-red-500' : 'bg-stone-900 border-stone-800 text-stone-500 hover:border-stone-600'}`}
                     title="Borracha"
                    >
                      <Eraser size={18} />
@@ -284,6 +297,7 @@ const App: React.FC = () => {
                   onTouchStart={startDrawing}
                   onTouchEnd={stopDrawing}
                   onTouchMove={draw}
+                  className="bg-white"
                 />
               </div>
               
@@ -322,9 +336,9 @@ const App: React.FC = () => {
                 const input = document.getElementById('playerNameInput') as HTMLInputElement;
                 saveCharacter(input.value);
               }}
-              className="mt-6 py-4 bg-red-900/20 border-2 border-red-900 text-red-500 cinzel font-bold tracking-[0.3em] hover:bg-red-900/40 transition-all flex items-center justify-center gap-2"
+              className="mt-6 py-4 bg-red-900/20 border-2 border-red-900 text-red-500 cinzel font-bold tracking-[0.3em] hover:bg-red-900/40 transition-all flex items-center justify-center gap-2 uppercase"
             >
-              <Check size={20} /> INICIAR RITUAL
+              <Check size={20} /> Iniciar Ritual
             </button>
           </div>
         </div>
@@ -340,9 +354,9 @@ const App: React.FC = () => {
         {/* Left Side: Player */}
         <div className="flex flex-col items-center text-center w-full lg:w-48 order-2 lg:order-1">
           <div className="relative w-24 h-24 mb-4 floating">
-             <div className="w-full h-full border-4 border-stone-200 rounded-lg flex items-center justify-center bg-stone-100 shadow-[0_0_20px_rgba(255,255,255,0.2)] overflow-hidden">
+             <div className="w-full h-full border-4 border-stone-200 rounded-lg flex items-center justify-center bg-white shadow-[0_0_20px_rgba(255,255,255,0.2)] overflow-hidden">
                 {game.playerAvatar ? (
-                  <img src={game.playerAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                  <img src={game.playerAvatar} alt="Avatar" className="w-full h-full object-contain" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-stone-200">
                     <Skull size={32} className="text-stone-800" />
@@ -428,10 +442,11 @@ const App: React.FC = () => {
          </button>
       </div>
 
+      {/* Enemy Picker Modal */}
       {showEnemyPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md" onClick={() => setShowEnemyPicker(false)}>
           <div className="bg-[#101010] border-2 border-[#331111] p-8 rounded-none max-w-2xl w-full shadow-[0_0_100px_rgba(139,0,0,0.3)]" onClick={e => e.stopPropagation()}>
-            <h2 className="text-2xl cinzel text-white text-center mb-8 tracking-[0.2em]">ESCOLHA SEU OPONENTE</h2>
+            <h2 className="text-2xl cinzel text-white text-center mb-8 tracking-[0.2em] uppercase">Escolha seu Oponente</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {ENEMIES.map(enemy => (
                 <button 
@@ -461,13 +476,13 @@ const App: React.FC = () => {
       {showRules && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/95 backdrop-blur-md" onClick={() => setShowRules(false)}>
           <div className="bg-[#101010] border-2 border-[#331111] p-10 rounded-none max-w-lg w-full relative shadow-[0_0_100px_rgba(139,0,0,0.4)]" onClick={e => e.stopPropagation()}>
-            <h2 className="text-3xl cinzel text-white text-center mb-10 tracking-widest">LEIS DA BUGALHA</h2>
+            <h2 className="text-3xl cinzel text-white text-center mb-10 tracking-widest uppercase">Leis da Bugalha</h2>
             <ul className="space-y-6 text-stone-400 text-sm cinzel tracking-wide">
               <li className="flex gap-4"><span className="text-red-600 font-bold text-xl">I.</span> Coloque dados no tabuleiro sagrado.</li>
               <li className="flex gap-4"><span className="text-red-600 font-bold text-xl">II.</span> Combine números com o oponente para <b>banir</b> os dados dele.</li>
               <li className="flex gap-4"><span className="text-red-600 font-bold text-xl">III.</span> Dados iguais na coluna multiplicam o poder exponencialmente (Soma × Quantidade).</li>
             </ul>
-            <button onClick={() => setShowRules(false)} className="mt-12 w-full py-4 border border-stone-800 hover:bg-stone-800 text-white cinzel text-sm tracking-widest">VOLTAR AO RITUAL</button>
+            <button onClick={() => setShowRules(false)} className="mt-12 w-full py-4 border border-stone-800 hover:bg-stone-800 text-white cinzel text-sm tracking-widest uppercase">Voltar ao Ritual</button>
           </div>
         </div>
       )}
